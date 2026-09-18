@@ -1489,6 +1489,7 @@ impl CompanyAgent {
             }
             if !reseed
                 && !brings_own_context
+                && switched
                 && let (Some(request), Some(company)) = (&chat_seed, turn_company.as_ref())
             {
                 match request
