@@ -324,15 +324,32 @@ async fn a_second_turn_in_the_same_thread_does_not_re_read_the_journal() {
     let thread =
         crate::runtime::delegation::ChatTarget::in_thread(Some("general"), Some(EventSeq::new(0)));
 
-    pool.run(&rec.id, "ceo", "first", &fx.deps, thread)
-        .await
-        .expect("first chat turn");
+    // Bound to the message each turn answers, as the chat route does.
+    // Without it `reseeded` is handed `None`, the session never takes a
+    // watermark, and every turn is a cold start that re-seeds the whole
+    // thread — so the delta this test is about never runs, and the
+    // assertions below hold whether it works or not.
+    pool.run(
+        &rec.id,
+        "ceo",
+        "first",
+        &fx.deps,
+        thread.answering(Some(EventSeq::new(1))),
+    )
+    .await
+    .expect("first chat turn");
     let reads_after_first = log.reads();
 
     log.operator_in("general", "second", 0); // seq 2, same thread
-    pool.run(&rec.id, "ceo", "second", &fx.deps, thread)
-        .await
-        .expect("second chat turn");
+    pool.run(
+        &rec.id,
+        "ceo",
+        "second",
+        &fx.deps,
+        thread.answering(Some(EventSeq::new(2))),
+    )
+    .await
+    .expect("second chat turn");
     // Bounded, not zero — see the sibling test above for why the
     // property changed. A second turn in the same thread is still not
     // a switch, and still re-seeds nothing; what it now does is ask
